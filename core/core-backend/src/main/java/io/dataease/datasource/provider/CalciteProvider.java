@@ -111,8 +111,11 @@ public class CalciteProvider extends Provider {
             LogUtil.error(e.getMessage(), e);
             DEException.throwException(e.getMessage());
         }
-        if (datasourceRequest.getDatasource().getType().equalsIgnoreCase(DatasourceConfiguration.DatasourceType.pg.name())) {
-            Set<String> SYSTEM_SCHEMAS = new HashSet<>(Arrays.asList("information_schema", "pg_catalog", "pg_temp_1", "pg_toast", "pg_toast_temp_1"));
+        if (datasourceRequest.getDatasource().getType().equalsIgnoreCase(DatasourceConfiguration.DatasourceType.pg.name())
+                || datasourceRequest.getDatasource().getType().equalsIgnoreCase("openGauss")
+                || datasourceRequest.getDatasource().getType().equalsIgnoreCase("GaussDB")
+                || datasourceRequest.getDatasource().getType().equalsIgnoreCase("KingBase")) {
+            Set<String> SYSTEM_SCHEMAS = new HashSet<>(Arrays.asList("information_schema", "pg_catalog", "pg_temp_1", "pg_toast", "pg_toast_temp_1", "sys", "cstore", "dbe_pldebugger"));
             return schemas.stream().filter(schema -> !SYSTEM_SCHEMAS.contains(schema)).collect(Collectors.toList());
         }
         return schemas;
@@ -123,6 +126,9 @@ public class CalciteProvider extends Provider {
         DatasourceConfiguration.DatasourceType datasourceType = DatasourceConfiguration.DatasourceType.valueOf(datasourceRequest.getDatasource().getType());
         switch (datasourceType) {
             case pg:
+            case openGauss:
+            case GaussDB:
+            case KingBase:
                 DatasourceConfiguration configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Pg.class);
                 List<String> schemas = getSchema(datasourceRequest);
                 if (CollectionUtils.isEmpty(schemas) || !schemas.contains(configuration.getSchema())) {
@@ -488,6 +494,12 @@ public class CalciteProvider extends Provider {
             case redshift -> JsonUtil.parseObject(config, Redshift.class);
             case h2 -> JsonUtil.parseObject(config, H2.class);
             case ck -> JsonUtil.parseObject(config, CK.class);
+            case openGauss -> JsonUtil.parseObject(config, OpenGauss.class);
+            case GaussDB -> JsonUtil.parseObject(config, GaussDB.class);
+            case dm -> JsonUtil.parseObject(config, Dm.class);
+            case oceanbase -> JsonUtil.parseObject(config, OceanBase.class);
+            case KingBase -> JsonUtil.parseObject(config, KingBase.class);
+            case GBase -> JsonUtil.parseObject(config, GBase.class);
             default -> JsonUtil.parseObject(config, Mysql.class);
         };
     }
@@ -944,6 +956,41 @@ public class CalciteProvider extends Provider {
                     }
                 }
                 break;
+            case openGauss:
+            case GaussDB:
+            case KingBase:
+                configuration = JsonUtil.parseObject(datasourceDTO.getConfiguration(), Pg.class);
+                if (StringUtils.isNotEmpty(configuration.getUrlType()) && configuration.getUrlType().equalsIgnoreCase("jdbcUrl")) {
+                    if (configuration.getJdbcUrl().contains("password=")) {
+                        String[] params = configuration.getJdbcUrl().split("\\?")[1].split("&");
+                        String pd = "";
+                        for (int i = 0; i < params.length; i++) {
+                            if (params[i].contains("password=")) {
+                                pd = params[i];
+                            }
+                        }
+                        configuration.setJdbcUrl(configuration.getJdbcUrl().replace(pd, "password=******"));
+                        datasourceDTO.setConfiguration(JsonUtil.toJSONString(configuration).toString());
+                    }
+                }
+                break;
+            case oceanbase:
+            case GBase:
+                configuration = JsonUtil.parseObject(datasourceDTO.getConfiguration(), Mysql.class);
+                if (StringUtils.isNotEmpty(configuration.getUrlType()) && configuration.getUrlType().equalsIgnoreCase("jdbcUrl")) {
+                    if (configuration.getJdbcUrl().contains("password=")) {
+                        String[] params = configuration.getJdbcUrl().split("\\?")[1].split("&");
+                        String pd = "";
+                        for (int i = 0; i < params.length; i++) {
+                            if (params[i].contains("password=")) {
+                                pd = params[i];
+                            }
+                        }
+                        configuration.setJdbcUrl(configuration.getJdbcUrl().replace(pd, "password=******"));
+                        datasourceDTO.setConfiguration(JsonUtil.toJSONString(configuration).toString());
+                    }
+                }
+                break;
             default:
                 break;
         }
@@ -1206,6 +1253,61 @@ public class CalciteProvider extends Provider {
                                 schema = JdbcSchema.create(rootSchema, ds.getSchemaAlias(), dataSource, null, configuration.getDataBase());
                                 rootSchema.add(ds.getSchemaAlias(), schema);
                                 break;
+                            case openGauss:
+                            case GaussDB:
+                            case KingBase:
+                                configuration = JsonUtil.parseObject(ds.getConfiguration(), Pg.class);
+                                if (StringUtils.isNotBlank(configuration.getUsername())) {
+                                    dataSource.setUsername(configuration.getUsername());
+                                }
+                                if (StringUtils.isNotBlank(configuration.getPassword())) {
+                                    dataSource.setPassword(configuration.getPassword());
+                                }
+                                dataSource.setInitialSize(configuration.getInitialPoolSize());
+                                dataSource.setMaxTotal(configuration.getMaxPoolSize());
+                                dataSource.setMinIdle(configuration.getMinPoolSize());
+                                dataSource.setDefaultQueryTimeout(Integer.valueOf(configuration.getQueryTimeout()));
+                                startSshSession(configuration, null, ds.getId());
+                                dataSource.setUrl(configuration.getJdbc());
+                                schema = JdbcSchema.create(rootSchema, ds.getSchemaAlias(), dataSource, null, configuration.getSchema());
+                                rootSchema.add(ds.getSchemaAlias(), schema);
+                                break;
+                            case oceanbase:
+                            case GBase:
+                                configuration = JsonUtil.parseObject(ds.getConfiguration(), Mysql.class);
+                                if (StringUtils.isNotBlank(configuration.getUsername())) {
+                                    dataSource.setUsername(configuration.getUsername());
+                                }
+                                if (StringUtils.isNotBlank(configuration.getPassword())) {
+                                    dataSource.setPassword(configuration.getPassword());
+                                }
+                                dataSource.setInitialSize(configuration.getInitialPoolSize());
+                                dataSource.setMaxTotal(configuration.getMaxPoolSize());
+                                dataSource.setMinIdle(configuration.getMinPoolSize());
+                                dataSource.setDefaultQueryTimeout(Integer.valueOf(configuration.getQueryTimeout()));
+                                startSshSession(configuration, null, ds.getId());
+                                dataSource.setUrl(configuration.getJdbc());
+                                schema = JdbcSchema.create(rootSchema, ds.getSchemaAlias(), dataSource, null, configuration.getDataBase());
+                                rootSchema.add(ds.getSchemaAlias(), schema);
+                                break;
+                            case dm:
+                                dataSource.setValidationQuery("SELECT 1");
+                                configuration = JsonUtil.parseObject(ds.getConfiguration(), Dm.class);
+                                if (StringUtils.isNotBlank(configuration.getUsername())) {
+                                    dataSource.setUsername(configuration.getUsername());
+                                }
+                                if (StringUtils.isNotBlank(configuration.getPassword())) {
+                                    dataSource.setPassword(configuration.getPassword());
+                                }
+                                dataSource.setInitialSize(configuration.getInitialPoolSize());
+                                dataSource.setMaxTotal(configuration.getMaxPoolSize());
+                                dataSource.setMinIdle(configuration.getMinPoolSize());
+                                dataSource.setDefaultQueryTimeout(Integer.valueOf(configuration.getQueryTimeout()));
+                                startSshSession(configuration, null, ds.getId());
+                                dataSource.setUrl(configuration.getJdbc());
+                                schema = JdbcSchema.create(rootSchema, ds.getSchemaAlias(), dataSource, null, configuration.getSchema());
+                                rootSchema.add(ds.getSchemaAlias(), schema);
+                                break;
                             default:
                                 configuration = JsonUtil.parseObject(ds.getConfiguration(), Mysql.class);
                                 if (StringUtils.isNotBlank(configuration.getUsername())) {
@@ -1445,6 +1547,87 @@ public class CalciteProvider extends Provider {
             case h2:
                 sql = String.format("SELECT COLUMN_NAME, DATA_TYPE, REMARKS, 0, 0 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s'", datasourceRequest.getTable());
                 break;
+            case openGauss:
+            case GaussDB:
+            case KingBase:
+                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Pg.class);
+                if (StringUtils.isEmpty(configuration.getSchema())) {
+                    DEException.throwException(Translator.get("i18n_schema_is_empty"));
+                }
+                sql = String.format("""
+                        SELECT a.attname     AS ColumnName,
+                               t.typname,
+                               b.description AS ColumnDescription,
+                               CASE
+                                   WHEN d.indisprimary THEN 1
+                                   ELSE 0
+                                   END,
+                               CASE
+                                   WHEN pg_get_expr(ad.adbin, ad.adrelid) LIKE 'nextval%%' THEN 1
+                                   ELSE 0
+                                   END
+                        FROM pg_class c
+                                 JOIN pg_attribute a ON a.attrelid = c.oid
+                                 LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
+                                 LEFT JOIN pg_description b ON a.attrelid = b.objoid AND a.attnum = b.objsubid
+                                 JOIN pg_type t ON a.atttypid = t.oid
+                                 LEFT JOIN pg_index d ON d.indrelid = a.attrelid AND d.indisprimary AND a.attnum = ANY (d.indkey)
+                        where c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = '%s')
+                          AND c.relname = '%s'
+                          AND a.attnum > 0
+                          AND NOT a.attisdropped
+                        ORDER BY a.attnum;
+                        """, configuration.getSchema(), datasourceRequest.getTable());
+                break;
+            case oceanbase:
+            case GBase:
+                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Mysql.class);
+                if (StringUtils.isEmpty(configuration.getUrlType()) || configuration.getUrlType().equalsIgnoreCase("hostName")) {
+                    database = configuration.getDataBase();
+                } else {
+                    Pattern WITH_SQL_FRAGMENT_OB2 = Pattern.compile("jdbc:mysql://(.*):(\\d+)/(.*)");
+                    Matcher matcherOb2 = WITH_SQL_FRAGMENT_OB2.matcher(configuration.getJdbcUrl());
+                    matcherOb2.find();
+                    String[] databasePramsOb2 = matcherOb2.group(3).split("\\?");
+                    database = databasePramsOb2[0];
+                }
+                sql = String.format("SELECT COLUMN_NAME,DATA_TYPE,COLUMN_COMMENT,IF(COLUMN_KEY='PRI',1,0),IF(EXTRA LIKE '%%auto_increment%%',1,0) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'", database, datasourceRequest.getTable());
+                break;
+            case dm:
+                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Dm.class);
+                if (StringUtils.isEmpty(configuration.getSchema())) {
+                    DEException.throwException(Translator.get("i18n_schema_is_empty"));
+                }
+                sql = String.format("""
+                        SELECT tc.COLUMN_NAME AS ColumnName,
+                               tc.DATA_TYPE,
+                               cc.COMMENTS,
+                               CASE
+                                   WHEN ac.COLUMN_NAME IS NOT NULL THEN 1
+                                   ELSE 0
+                                   END,
+                               0
+                        FROM ALL_TAB_COLUMNS tc
+                                 LEFT JOIN (SELECT cols.OWNER,
+                                                   cols.TABLE_NAME,
+                                                   cols.COLUMN_NAME
+                                            FROM ALL_CONSTRAINTS cons
+                                                     JOIN
+                                                 ALL_CONS_COLUMNS cols
+                                                 ON cons.OWNER = cols.OWNER
+                                                     AND cons.CONSTRAINT_NAME = cols.CONSTRAINT_NAME
+                                            WHERE cons.TABLE_NAME = '%s'
+                                              AND cons.CONSTRAINT_TYPE = 'P') ac
+                                           ON tc.OWNER = ac.OWNER
+                                               AND tc.TABLE_NAME = ac.TABLE_NAME
+                                               AND tc.COLUMN_NAME = ac.COLUMN_NAME
+                                 LEFT JOIN ALL_COL_COMMENTS cc
+                                           ON tc.owner = cc.owner AND tc.table_name = cc.table_name AND tc.column_name = cc.column_name
+                        WHERE tc.TABLE_NAME = '%s'
+                          AND tc.OWNER = '%s'
+                        ORDER BY tc.TABLE_NAME, tc.COLUMN_ID
+                        """, datasourceRequest.getTable(), datasourceRequest.getTable(), configuration.getSchema());
+                break;
             default:
                 break;
         }
@@ -1618,6 +1801,67 @@ public class CalciteProvider extends Provider {
 
 
                 break;
+            case openGauss:
+            case GaussDB:
+            case KingBase:
+                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Pg.class);
+                if (StringUtils.isEmpty(configuration.getSchema())) {
+                    DEException.throwException(Translator.get("i18n_schema_is_empty"));
+                }
+                tableSqls.add(new QueryAndParams("SELECT  \n" +
+                        "    relname AS TableName,  \n" +
+                        "    obj_description(relfilenode::regclass, 'pg_class') AS TableDescription  \n" +
+                        "FROM  \n" +
+                        "    pg_class  \n" +
+                        "WHERE  \n" +
+                        "   relkind in ('r','p', 'f')  \n" +
+                        "    AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = ?)", configuration.getSchema()));
+                tableSqls.add(new QueryAndParams("SELECT \n" +
+                        "    c.relname AS view_name,\n" +
+                        "    COALESCE(d.description, '') AS view_description\n" +
+                        "FROM \n" +
+                        "    pg_class c\n" +
+                        "JOIN \n" +
+                        "    pg_namespace n ON c.relnamespace = n.oid\n" +
+                        "LEFT JOIN \n" +
+                        "    pg_description d ON c.oid = d.objoid\n" +
+                        "WHERE \n" +
+                        "    c.relkind = 'v'  \n" +
+                        "    AND n.nspname = ?", configuration.getSchema()));
+                tableSqls.add(new QueryAndParams("SELECT \n" +
+                        "    c.relname AS materialized_view_name,\n" +
+                        "    COALESCE(d.description, '') AS view_description\n" +
+                        "FROM \n" +
+                        "    pg_class c\n" +
+                        "JOIN \n" +
+                        "    pg_namespace n ON c.relnamespace = n.oid\n" +
+                        "LEFT JOIN \n" +
+                        "    pg_description d ON c.oid = d.objoid\n" +
+                        "WHERE \n" +
+                        "    c.relkind = 'm' and n.nspname = ?", configuration.getSchema()));
+                break;
+            case oceanbase:
+            case GBase:
+                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Mysql.class);
+                if (StringUtils.isEmpty(configuration.getUrlType()) || configuration.getUrlType().equalsIgnoreCase("hostName")) {
+                    database = configuration.getDataBase();
+                } else {
+                    Pattern WITH_SQL_FRAGMENT_OB = Pattern.compile("jdbc:mysql://(.*):(\\d+)/(.*)");
+                    Matcher matcherOb = WITH_SQL_FRAGMENT_OB.matcher(configuration.getJdbcUrl());
+                    matcherOb.find();
+                    String[] databasePramsOb = matcherOb.group(3).split("\\?");
+                    database = databasePramsOb[0];
+                }
+                tableSqls.add(new QueryAndParams("SELECT TABLE_NAME,TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?", database));
+                break;
+            case dm:
+                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Dm.class);
+                if (StringUtils.isEmpty(configuration.getSchema())) {
+                    DEException.throwException(Translator.get("i18n_schema_is_empty"));
+                }
+                tableSqls.add(new QueryAndParams("select table_name, comments, owner from all_tab_comments where owner = ? AND table_type = 'TABLE'", configuration.getSchema()));
+                tableSqls.add(new QueryAndParams("select view_name, owner from all_views where owner = ?", configuration.getSchema()));
+                break;
             default:
                 tableSqls.add(new QueryAndParams("show tables"));
         }
@@ -1649,6 +1893,7 @@ public class CalciteProvider extends Provider {
         DatasourceConfiguration.DatasourceType datasourceType = DatasourceConfiguration.DatasourceType.valueOf(datasource.getType());
         switch (datasourceType) {
             case oracle:
+            case dm:
                 return "select * from all_users";
             case sqlServer:
                 return "select name from sys.schemas;";
@@ -1656,6 +1901,9 @@ public class CalciteProvider extends Provider {
                 DatasourceConfiguration configuration = JsonUtil.parseObject(datasource.getConfiguration(), Db2.class);
                 return "select SCHEMANAME from syscat.SCHEMATA   WHERE \"DEFINER\" ='USER'".replace("USER", configuration.getUsername().toUpperCase());
             case pg:
+            case openGauss:
+            case GaussDB:
+            case KingBase:
                 return "SELECT nspname FROM pg_namespace;";
             case redshift:
                 return "SELECT nspname FROM pg_namespace;";

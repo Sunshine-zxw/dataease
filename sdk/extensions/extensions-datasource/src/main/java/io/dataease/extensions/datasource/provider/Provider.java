@@ -264,6 +264,18 @@ public abstract class Provider {
             case es:
                 sqlDialect = EsSqlDialect.DEFAULT;
                 break;
+            case openGauss:
+            case GaussDB:
+            case KingBase:
+                sqlDialect = PostgresqlSqlDialect.DEFAULT;
+                break;
+            case oceanbase:
+            case GBase:
+                sqlDialect = MysqlSqlDialect.DEFAULT;
+                break;
+            case dm:
+                sqlDialect = new OracleSqlDialect(OracleSqlDialect.DEFAULT_CONTEXT, coreDatasource.getDsVersion());
+                break;
             default:
                 sqlDialect = MysqlSqlDialect.DEFAULT;
         }

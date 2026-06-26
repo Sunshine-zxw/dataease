@@ -32,7 +32,13 @@ public final class JdbcUrlSecurityPolicy {
             Map.entry("redshift", "jdbc:redshift"),
             Map.entry("h2", "jdbc:h2"),
             Map.entry("ck", "jdbc:clickhouse"),
-            Map.entry("sqlite", "jdbc:sqlite:")
+            Map.entry("sqlite", "jdbc:sqlite:"),
+            Map.entry("opengauss", "jdbc:opengauss"),
+            Map.entry("gaussdb", "jdbc:postgresql"),
+            Map.entry("dm", "jdbc:dm"),
+            Map.entry("oceanbase", "jdbc:mysql"),
+            Map.entry("kingbase", "jdbc:kingbase8"),
+            Map.entry("gbase", "jdbc:gbase")
     );
 
     private static final Map<String, String> DEFAULT_DRIVERS = Map.ofEntries(
@@ -50,7 +56,13 @@ public final class JdbcUrlSecurityPolicy {
             Map.entry("redshift", "com.amazon.redshift.jdbc42.Driver"),
             Map.entry("h2", "org.h2.Driver"),
             Map.entry("ck", "com.clickhouse.jdbc.ClickHouseDriver"),
-            Map.entry("sqlite", "org.sqlite.JDBC")
+            Map.entry("sqlite", "org.sqlite.JDBC"),
+            Map.entry("opengauss", "org.opengauss.Driver"),
+            Map.entry("gaussdb", "org.postgresql.Driver"),
+            Map.entry("dm", "dm.jdbc.driver.DmDriver"),
+            Map.entry("oceanbase", "com.mysql.cj.jdbc.Driver"),
+            Map.entry("kingbase", "com.kingbase8.Driver"),
+            Map.entry("gbase", "com.gbase.jdbc.Driver")
     );
 
     private static final Set<String> COMMON_DANGEROUS_FRAGMENTS = Set.of(
@@ -92,7 +104,13 @@ public final class JdbcUrlSecurityPolicy {
             Map.entry("pg", Set.of("socketfactory", "socketfactoryarg", "sslfactory", "sslhostnameverifier", "sslpasswordcallback", "authenticationpluginclassname")),
             Map.entry("redshift", Set.of("socketfactory", "socketfactoryarg", "sslfactory", "sslhostnameverifier", "sslpasswordcallback", "authenticationpluginclassname", "inifile")),
             Map.entry("h2", Set.of("init=", "runscript")),
-            Map.entry("ck", Set.of())
+            Map.entry("ck", Set.of()),
+            Map.entry("opengauss", Set.of("socketfactory", "socketfactoryarg", "sslfactory", "sslhostnameverifier", "sslpasswordcallback", "authenticationpluginclassname")),
+            Map.entry("gaussdb", Set.of("socketfactory", "socketfactoryarg", "sslfactory", "sslhostnameverifier", "sslpasswordcallback", "authenticationpluginclassname")),
+            Map.entry("dm", Set.of()),
+            Map.entry("oceanbase", Set.of("maxallowedpacket", "allowloadlocalinfile", "allowurlinlocalinfile", "allowloadlocalinfileinpath", "allowmultiqueries")),
+            Map.entry("kingbase", Set.of()),
+            Map.entry("gbase", Set.of("maxallowedpacket", "allowloadlocalinfile", "allowurlinlocalinfile", "allowloadlocalinfileinpath", "allowmultiqueries"))
     );
 
     private JdbcUrlSecurityPolicy() {
