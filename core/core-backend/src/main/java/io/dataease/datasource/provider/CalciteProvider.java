@@ -129,7 +129,7 @@ public class CalciteProvider extends Provider {
             case openGauss:
             case GaussDB:
             case KingBase:
-                DatasourceConfiguration configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Pg.class);
+                DatasourceConfiguration configuration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceType);
                 List<String> schemas = getSchema(datasourceRequest);
                 if (CollectionUtils.isEmpty(schemas) || !schemas.contains(configuration.getSchema())) {
                     DEException.throwException("无效的 schema！");
@@ -483,7 +483,7 @@ public class CalciteProvider extends Provider {
     }
 
     private DatasourceConfiguration parseDatasourceConfiguration(String config, DatasourceConfiguration.DatasourceType datasourceType) {
-        return switch (datasourceType) {
+        DatasourceConfiguration configuration = switch (datasourceType) {
             case mysql, StarRocks, doris, TiDB, mariadb -> JsonUtil.parseObject(config, Mysql.class);
             case mongo -> JsonUtil.parseObject(config, Mongo.class);
             case impala -> JsonUtil.parseObject(config, Impala.class);
@@ -502,6 +502,18 @@ public class CalciteProvider extends Provider {
             case GBase -> JsonUtil.parseObject(config, GBase.class);
             default -> JsonUtil.parseObject(config, Mysql.class);
         };
+        configuration.convertJdbcUrl();
+        return configuration;
+    }
+
+    private String resolveDatabaseName(DatasourceConfiguration configuration) {
+        if (StringUtils.isBlank(configuration.getDataBase()) && StringUtils.equalsIgnoreCase(configuration.getUrlType(), "jdbcUrl")) {
+            configuration.convertJdbcUrl();
+        }
+        if (StringUtils.isBlank(configuration.getDataBase())) {
+            DEException.throwException("Invalid jdbcUrl: database is empty");
+        }
+        return configuration.getDataBase();
     }
 
     private CoreDriver resolveCustomDriver(String datasourceType, String customDriver) {
@@ -959,7 +971,7 @@ public class CalciteProvider extends Provider {
             case openGauss:
             case GaussDB:
             case KingBase:
-                configuration = JsonUtil.parseObject(datasourceDTO.getConfiguration(), Pg.class);
+                configuration = parseDatasourceConfiguration(datasourceDTO.getConfiguration(), datasourceType);
                 if (StringUtils.isNotEmpty(configuration.getUrlType()) && configuration.getUrlType().equalsIgnoreCase("jdbcUrl")) {
                     if (configuration.getJdbcUrl().contains("password=")) {
                         String[] params = configuration.getJdbcUrl().split("\\?")[1].split("&");
@@ -976,7 +988,7 @@ public class CalciteProvider extends Provider {
                 break;
             case oceanbase:
             case GBase:
-                configuration = JsonUtil.parseObject(datasourceDTO.getConfiguration(), Mysql.class);
+                configuration = parseDatasourceConfiguration(datasourceDTO.getConfiguration(), datasourceType);
                 if (StringUtils.isNotEmpty(configuration.getUrlType()) && configuration.getUrlType().equalsIgnoreCase("jdbcUrl")) {
                     if (configuration.getJdbcUrl().contains("password=")) {
                         String[] params = configuration.getJdbcUrl().split("\\?")[1].split("&");
@@ -1256,7 +1268,7 @@ public class CalciteProvider extends Provider {
                             case openGauss:
                             case GaussDB:
                             case KingBase:
-                                configuration = JsonUtil.parseObject(ds.getConfiguration(), Pg.class);
+                                configuration = parseDatasourceConfiguration(ds.getConfiguration(), datasourceType);
                                 if (StringUtils.isNotBlank(configuration.getUsername())) {
                                     dataSource.setUsername(configuration.getUsername());
                                 }
@@ -1274,7 +1286,7 @@ public class CalciteProvider extends Provider {
                                 break;
                             case oceanbase:
                             case GBase:
-                                configuration = JsonUtil.parseObject(ds.getConfiguration(), Mysql.class);
+                                configuration = parseDatasourceConfiguration(ds.getConfiguration(), datasourceType);
                                 if (StringUtils.isNotBlank(configuration.getUsername())) {
                                     dataSource.setUsername(configuration.getUsername());
                                 }
@@ -1287,7 +1299,7 @@ public class CalciteProvider extends Provider {
                                 dataSource.setDefaultQueryTimeout(Integer.valueOf(configuration.getQueryTimeout()));
                                 startSshSession(configuration, null, ds.getId());
                                 dataSource.setUrl(configuration.getJdbc());
-                                schema = JdbcSchema.create(rootSchema, ds.getSchemaAlias(), dataSource, null, configuration.getDataBase());
+                                schema = JdbcSchema.create(rootSchema, ds.getSchemaAlias(), dataSource, null, resolveDatabaseName(configuration));
                                 rootSchema.add(ds.getSchemaAlias(), schema);
                                 break;
                             case dm:
@@ -1550,7 +1562,7 @@ public class CalciteProvider extends Provider {
             case openGauss:
             case GaussDB:
             case KingBase:
-                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Pg.class);
+                configuration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceType);
                 if (StringUtils.isEmpty(configuration.getSchema())) {
                     DEException.throwException(Translator.get("i18n_schema_is_empty"));
                 }
@@ -1581,16 +1593,8 @@ public class CalciteProvider extends Provider {
                 break;
             case oceanbase:
             case GBase:
-                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Mysql.class);
-                if (StringUtils.isEmpty(configuration.getUrlType()) || configuration.getUrlType().equalsIgnoreCase("hostName")) {
-                    database = configuration.getDataBase();
-                } else {
-                    Pattern WITH_SQL_FRAGMENT_OB2 = Pattern.compile("jdbc:mysql://(.*):(\\d+)/(.*)");
-                    Matcher matcherOb2 = WITH_SQL_FRAGMENT_OB2.matcher(configuration.getJdbcUrl());
-                    matcherOb2.find();
-                    String[] databasePramsOb2 = matcherOb2.group(3).split("\\?");
-                    database = databasePramsOb2[0];
-                }
+                configuration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceType);
+                database = resolveDatabaseName(configuration);
                 sql = String.format("SELECT COLUMN_NAME,DATA_TYPE,COLUMN_COMMENT,IF(COLUMN_KEY='PRI',1,0),IF(EXTRA LIKE '%%auto_increment%%',1,0) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'", database, datasourceRequest.getTable());
                 break;
             case dm:
@@ -1804,7 +1808,7 @@ public class CalciteProvider extends Provider {
             case openGauss:
             case GaussDB:
             case KingBase:
-                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Pg.class);
+                configuration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceType);
                 if (StringUtils.isEmpty(configuration.getSchema())) {
                     DEException.throwException(Translator.get("i18n_schema_is_empty"));
                 }
@@ -1842,16 +1846,8 @@ public class CalciteProvider extends Provider {
                 break;
             case oceanbase:
             case GBase:
-                configuration = JsonUtil.parseObject(datasourceRequest.getDatasource().getConfiguration(), Mysql.class);
-                if (StringUtils.isEmpty(configuration.getUrlType()) || configuration.getUrlType().equalsIgnoreCase("hostName")) {
-                    database = configuration.getDataBase();
-                } else {
-                    Pattern WITH_SQL_FRAGMENT_OB = Pattern.compile("jdbc:mysql://(.*):(\\d+)/(.*)");
-                    Matcher matcherOb = WITH_SQL_FRAGMENT_OB.matcher(configuration.getJdbcUrl());
-                    matcherOb.find();
-                    String[] databasePramsOb = matcherOb.group(3).split("\\?");
-                    database = databasePramsOb[0];
-                }
+                configuration = parseDatasourceConfiguration(datasourceRequest.getDatasource().getConfiguration(), datasourceType);
+                database = resolveDatabaseName(configuration);
                 tableSqls.add(new QueryAndParams("SELECT TABLE_NAME,TABLE_COMMENT FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?", database));
                 break;
             case dm:
@@ -1860,7 +1856,7 @@ public class CalciteProvider extends Provider {
                     DEException.throwException(Translator.get("i18n_schema_is_empty"));
                 }
                 tableSqls.add(new QueryAndParams("select table_name, comments, owner from all_tab_comments where owner = ? AND table_type = 'TABLE'", configuration.getSchema()));
-                tableSqls.add(new QueryAndParams("select view_name, owner from all_views where owner = ?", configuration.getSchema()));
+                tableSqls.add(new QueryAndParams("select view_name, view_name from all_views where owner = ?", configuration.getSchema()));
                 break;
             default:
                 tableSqls.add(new QueryAndParams("show tables"));
