@@ -105,6 +105,43 @@ export const dsTypes = [
     extraParams: ''
   },
   {
+    type: 'openGauss',
+    name: 'openGauss',
+    catalog: 'OLTP',
+    extraParams: 'sslmode=disable'
+  },
+  {
+    type: 'GaussDB',
+    name: 'GaussDB',
+    catalog: 'OLTP',
+    extraParams: ''
+  },
+  {
+    type: 'dm',
+    name: 'DM',
+    catalog: 'OLTP',
+    extraParams: ''
+  },
+  {
+    type: 'oceanbase',
+    name: 'OceanBase',
+    catalog: 'OLTP',
+    extraParams:
+      'characterEncoding=UTF-8&connectTimeout=5000&useSSL=false&allowPublicKeyRetrieval=true'
+  },
+  {
+    type: 'KingBase',
+    name: 'KingBase',
+    catalog: 'OLTP',
+    extraParams: ''
+  },
+  {
+    type: 'GBase',
+    name: 'GBase',
+    catalog: 'OLAP',
+    extraParams: 'characterEncoding=UTF-8&connectTimeout=5000'
+  },
+  {
     type: 'API',
     name: 'API',
     catalog: 'OTHER',

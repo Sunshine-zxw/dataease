@@ -29,7 +29,13 @@ public class DatasourceConfiguration extends Configuration {
         ck("ck", "Clickhouse", "OLAP", "`", "`", 11),
         h2("h2", "H2", "OLAP", "\"", "\"", 30),
         sqlServer("sqlServer", "Sqlserver", "DL", "[", "]", 2),
-        mongo("mongo", "MongoDB", "DL", "`", "`", 10);
+        mongo("mongo", "MongoDB", "DL", "`", "`", 10),
+        openGauss("openGauss", "openGauss", "OLTP", "\"", "\"", 31),
+        GaussDB("GaussDB", "GaussDB", "OLTP", "\"", "\"", 32),
+        dm("dm", "DM", "OLTP", "\"", "\"", 33),
+        oceanbase("oceanbase", "OceanBase", "OLTP", "`", "`", 34),
+        KingBase("KingBase", "KingBase", "OLTP", "\"", "\"", 35),
+        GBase("GBase", "GBase", "OLAP", "`", "`", 36);
 
         private String type;
         private String name;

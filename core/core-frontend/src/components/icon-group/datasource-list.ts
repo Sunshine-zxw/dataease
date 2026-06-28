@@ -15,6 +15,12 @@ import ExcelDs from '@/assets/svg/Excel-ds.svg'
 import ExcelRemoteDs from '@/assets/svg/Excel-remote-ds.svg'
 import dorisDs from '@/assets/svg/doris-ds.svg'
 import esDs from '@/assets/svg/es-ds.svg'
+import openGaussDs from '@/assets/svg/openGauss-ds.svg'
+import GaussDBDs from '@/assets/svg/GaussDB-ds.svg'
+import dmDs from '@/assets/svg/DM-ds.svg'
+import oceanbaseDs from '@/assets/svg/oceanbase-ds.svg'
+import KingBaseDs from '@/assets/svg/KingBase-ds.svg'
+import GBaseDs from '@/assets/svg/GBase-ds.svg'
 const iconDatasourceMap = {
   mysql: mysqlDs,
   oracle: oracleDs,
@@ -32,7 +38,13 @@ const iconDatasourceMap = {
   Excel: ExcelDs,
   ExcelRemote: ExcelRemoteDs,
   doris: dorisDs,
-  es: esDs
+  es: esDs,
+  openGauss: openGaussDs,
+  GaussDB: GaussDBDs,
+  dm: dmDs,
+  oceanbase: oceanbaseDs,
+  KingBase: KingBaseDs,
+  GBase: GBaseDs
 }
 
 export { iconDatasourceMap }
