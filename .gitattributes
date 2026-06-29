@@ -5,3 +5,7 @@
 *.xml linguist-language=Java
 *.css linguist-language=Java
 *.ts linguist-language=Java
+
+.gitattributes text eol=lf
+.gitignore text eol=lf
+core/core-frontend/**/* text eol=lf

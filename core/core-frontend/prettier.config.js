@@ -12,9 +12,10 @@ module.exports = {
     singleQuote: true,
     // 多行逗号分割的语法中，最后一行不加逗号
     trailingComma: 'none',
-     // 单个参数的箭头函数不加括号 x => x
-    arrowParens: 'avoid',     
+    // 与 .editorconfig / .gitattributes 保持一致，避免 Windows 构建时报 CRLF 格式错误
+    endOfLine: 'lf',
+    // 单个参数的箭头函数不加括号 x => x
+    arrowParens: 'avoid',
     // 对象大括号内两边是否加空格 { a:0 }
-    bracketSpacing: true,      
+    bracketSpacing: true
   }
-  

@@ -32,12 +32,6 @@
             <fileset>
                 <directory>node_modules</directory>
             </fileset>
-            <fileset>
-                <directory>./</directory>
-                <includes>
-                    <include>*-lock.json</include>
-                </includes>
-            </fileset>
           </filesets>
         </configuration>
       </plugin>
